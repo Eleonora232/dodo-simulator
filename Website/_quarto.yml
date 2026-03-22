@@ -1,5 +1,6 @@
 project:
   type: website
+  output-dir: ../docs  # This tells Quarto: "Go up one level and put it in docs"
 
 website:
   title: "The Dodo Simulator"
