@@ -1,0 +1,19 @@
+project:
+  type: website
+
+website:
+  title: "The Dodo Simulator"
+  navbar:
+    left:
+      - index.qmd
+      - text: "The Mainland"
+        file: methodology/mainland.qmd
+      - text: "The Island"
+        file: methodology/island.qmd
+
+format:
+  html:
+    theme: cosmo     
+    code-copy: true  
+
+bibliography: references.bib

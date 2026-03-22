@@ -1,0 +1,104 @@
+---
+title: "The Seeds of an Island: Mapping the Mainland"
+subtitle: "Using GBIF and Preston's Distribution to model migration"
+author: "Eleonora Tran Pedio"
+date: "2026-03-22"
+categories: [Data Science, Ecology, Python]
+---
+
+# Introduction
+The scope of this post is to explain how we built the "Mainland" for our island evolution simulation. The Mainland serves as the source of biodiversity from which species can migrate to our simulated island. In this first example, I chose Italy as my Mainland due to various reasons: 1) its rich biodiversity and well-documented species occurrences 2) its proximity to islands (Sicily and Sardinia) which actually were a living and breathing example of what we try to model (there were dwarf elephants in Sicily!) 3) I am from Italy.
+
+# The science
+
+This first step of our simulation is to create a realistic "Mainland" that reflects the biodiversity of a real-world location. This involves two key components: 1) Gathering occurrence data for species in our chosen Mainland (Italy) using the GBIF API. 2) Applying Preston's Canonical Distribution ([@preston1962]) to convert these occurrences into a probability distribution of migration.
+Preston's Canonical Distribution is a way to model the abundance of species in a community. It suggests that species distribution follows a bell-shaped curve when plotted on a logarithmic scale, with a few very rare species, many rare/semi-common species and few common ones (like pests!). This is crucial for our simulation because it allows us to create a realistic species pool that reflects the natural variability in species abundance. 
+
+
+# The Migration Engine
+We use the GBIF API to pull real-world occurrence data. To turn these sightings into a probability of migration, we apply **Preston's Canonical Distribution (1962)**. Once the species pool is generated, we can use it to simulate migration events to our island. Each species in the pool has a certain probability of migrating based on its abundance, which is derived from the Preston distribution. This allows us to create a dynamic and realistic model of how species might colonize an island over time. After the migration events, we will then apply evolutionary processes such as speciation and extinction to see how the island's biodiversity evolves: we are going to use MacArthur and Wilson's Island Biogeography Theory [@macarthur1967] as a framework for this, and sprinkle Foster's island rule [@foster1964] on top. 
+
+
+```{python}
+#| label: fig-preston
+#| fig-cap: "The Preston Octave Distribution of Italian Species. Note the 'long tail' of rare species."
+#| code-fold: true
+
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+import sys
+import os
+
+# Go up two levels: from Posts -> Website -> Project Root
+sys.path.append(os.path.abspath("../../"))
+
+# NOW you can import your modules
+from src.data_manager import TraitFactory
+from src.mainland import Mainland
+
+
+# 1. Initialize our engine
+factory = TraitFactory(
+    bird_path="../../data/BirdFuncDat.txt", 
+    mammal_path="../../data/MamFuncDat.txt", 
+    reptile_path="../../data/ReptTraits dataset v1-1.xlsx"
+)
+mainland = Mainland(country_code='IT', factory=factory)
+
+# 2. Visualize the results
+df = pd.DataFrame(mainland.species_pool)
+df['octave'] = np.floor(np.log2(df['abundance']))
+
+plt.figure(figsize=(10, 5))
+sns.histplot(df['octave'], bins=15, color='teal', kde=True)
+plt.title("Preston Octave Distribution (Italy)")
+plt.xlabel("Abundance Octave (log2 of sightings)")
+plt.show()
+```
+
+As seen in @fig-preston, our species pool follows a log-normal distribution, with a long tail of rare species and a few common ones. This distribution is crucial for our simulation as it provides a realistic basis for modeling migration events to our island. In the next post, we will see how we can use this Mainland to simulate migration and the subsequent evolutionary processes on our island!
+
+# The data 
+
+```{python}
+#| label: fig-mass-comparison
+#| fig-cap: "Distribution of Body Mass across Mainland Taxa (Log Scale)"
+
+plt.figure(figsize=(10, 6))
+sns.boxenplot(data=df, x='group', y='mass', palette='magma')
+
+# We use a log scale because a shrew vs. an elephant is a massive range!
+plt.yscale('log')
+plt.title("Mainland Body Mass Diversity")
+plt.xlabel("Taxonomic Group")
+plt.ylabel("Body Mass (grams, Log Scale)")
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.show()
+```
+
+
+
+```{python}
+#| label: fig-taxa-hierarchy
+#| fig-cap: "The Biological Architecture of Italy: A Breakdown by Group and Family."
+
+import plotly.express as px
+
+# We'll use the new 'family' column here
+fig = px.treemap(df, 
+                 path=['group', 'family', 'name'], 
+                 values='abundance',
+                 color='group',
+                 hover_data=['mass', 'diet'],
+                 color_discrete_map={
+                     'bird': '#2A9D8F',    # Teal
+                     'mammal': '#E76F51',  # Terracotta
+                     'reptile': '#E9C46A'  # Sand
+                 })
+
+fig.update_layout(margin=dict(t=50, l=25, r=25, b=25))
+fig.show()
+```
